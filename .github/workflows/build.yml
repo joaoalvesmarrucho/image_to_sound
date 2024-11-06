@@ -2,9 +2,9 @@ name: Build Windows Executable
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -12,25 +12,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller pillow pydub moviepy flask numpy
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller==5.13.0 pillow==9.5.0 pydub==0.25.1 moviepy==1.0.3 flask==2.2.5 numpy==1.24.0
 
-    - name: Build executable
-      run: |
-        pyinstaller --onefile --windowed --icon=app_icon.ico image_to_sound.py
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --windowed image_to_sound.py
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: Windows Executable
-        path: dist/image_to_sound.exe
-
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows Executable
+          path: dist/image_to_sound.exe
