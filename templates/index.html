@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image to Sound/Video Converter</title>
+  </head>
+  <body>
+    <h1>Convert Image Frames to Sound or Video</h1>
+    <form action="/" method="post">
+      <label for="input_folder">Input Folder:</label>
+      <input
+        type="text"
+        name="input_folder"
+        value="{{ input_folder }}"
+        readonly
+      />
+      <button type="submit" name="select_folder">Select Folder</button
+      ><br /><br />
+
+      <label for="frame_rate">Frame Rate (FPS):</label>
+      <input type="number" name="frame_rate" value="24" required /><br /><br />
+
+      <label for="read_direction">Read Direction:</label>
+      <select name="read_direction" required>
+        <option value="horizontal">Left-to-Right</option>
+        <option value="vertical">Top-to-Bottom</option></select
+      ><br /><br />
+
+      <label for="export_type">Export Type:</label>
+      <select name="export_type" required>
+        <option value="audio">Audio Only</option>
+        <option value="video">Video Only</option>
+        <option value="both">Both Audio and Video</option></select
+      ><br /><br />
+
+      <button type="submit">Convert</button>
+    </form>
+  </body>
+</html>
