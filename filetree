@@ -1,0 +1,19 @@
+With_Zina/
+├── static/
+│   ├── favicon.ico         
+│   ├── main.css
+│   └── scripts.js
+├── templates/
+│   └── index.html
+├── uploads/
+├── output/
+├── venv/
+├── images/
+│   ├── (various image files)
+├── dist/
+│   ├── image_to_sound       
+├── build/
+├── image_to_sound.py
+├── image_to_sound.spec
+├── requirements.txt
+├── Windows Executable.zip

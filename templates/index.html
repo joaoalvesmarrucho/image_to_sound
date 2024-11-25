@@ -1,40 +1,148 @@
+<!-- templates/index.html -->
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Image to Sound/Video Converter</title>
+    <title>Image to Sound Converter</title>
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+      type="image/x-icon"
+    />
+    <!-- <link rel="icon" href="data:," type="image/x-icon" /> -->
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='main.css') }}"
+    />
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
   </head>
   <body>
-    <h1>Convert Image Frames to Sound or Video</h1>
-    <form action="/" method="post">
-      <label for="input_folder">Input Folder:</label>
-      <input
-        type="text"
-        name="input_folder"
-        value="{{ input_folder }}"
-        readonly
-      />
-      <button type="submit" name="select_folder">Select Folder</button
-      ><br /><br />
+    <h1>Convert Image Frames to Sound</h1>
 
-      <label for="frame_rate">Frame Rate (FPS):</label>
-      <input type="number" name="frame_rate" value="24" required /><br /><br />
+    <!-- Display Flashed Messages -->
+    {% with messages = get_flashed_messages() %} {% if messages %}
+    <ul class="flashed-messages">
+      {% for message in messages %}
+      <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %} {% endwith %}
 
-      <label for="read_direction">Read Direction:</label>
-      <select name="read_direction" required>
-        <option value="horizontal">Left-to-Right</option>
-        <option value="vertical">Top-to-Bottom</option></select
-      ><br /><br />
+    <!-- Conversion Form -->
+    <form id="conversion-form" enctype="multipart/form-data">
+      <!-- Input Folder Selection -->
+      <div class="form-group">
+        <label for="input_folder">Input Folder:</label>
+        <input
+          type="file"
+          name="files"
+          id="input_folder"
+          webkitdirectory
+          directory
+          multiple
+          required
+        />
+      </div>
 
-      <label for="export_type">Export Type:</label>
-      <select name="export_type" required>
-        <option value="audio">Audio Only</option>
-        <option value="video">Video Only</option>
-        <option value="both">Both Audio and Video</option></select
-      ><br /><br />
+      <!-- Frame Rate Selection -->
+      <div class="form-group">
+        <label for="frame_rate">Frame Rate (FPS):</label>
+        <input
+          type="number"
+          name="frame_rate"
+          id="frame_rate"
+          value="24"
+          min="1"
+          required
+        />
+      </div>
 
-      <button type="submit">Convert</button>
+      <!-- Read Direction Selection -->
+      <div class="form-group">
+        <label for="read_direction">Read Direction:</label>
+        <select name="read_direction" id="read_direction" required>
+          <option value="horizontal">Left-to-Right</option>
+          <option value="vertical">Top-to-Bottom</option>
+        </select>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="form-group">
+        <button type="submit">Convert</button>
+      </div>
     </form>
+
+    <!-- Progress Indicator -->
+    <div id="progress-container" style="display: none">
+      <p>Processing... Please wait.</p>
+      <progress id="progress-bar" value="0" max="100"></progress>
+    </div>
+
+    <!-- Clear Files Button -->
+    <form
+      class="form-group"
+      action="{{ url_for('clear_uploaded_files') }}"
+      method="post"
+    >
+      <button type="submit" class="clear-button">Clear Uploaded Files</button>
+    </form>
+
+    <!-- Output Download Link -->
+    <div id="output-container" style="display: none">
+      <h2>Conversion Complete!</h2>
+      <p>Your audio file is ready for download:</p>
+      <a id="download-link" href="#" download>Download MP3</a>
+    </div>
   </body>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("conversion-form");
+      const progressContainer = document.getElementById("progress-container");
+      const progressBar = document.getElementById("progress-bar");
+      const outputContainer = document.getElementById("output-container");
+      const downloadLink = document.getElementById("download-link");
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        progressContainer.style.display = "block";
+        progressBar.value = 0;
+
+        fetch("/convert", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const taskId = data.task_id;
+
+            // Poll for progress
+            const interval = setInterval(() => {
+              fetch(`/progress/${taskId}`)
+                .then((res) => res.json())
+                .then((progressData) => {
+                  if (progressData.status === "processing") {
+                    progressBar.value = progressData.progress;
+                  } else if (progressData.status === "error") {
+                    clearInterval(interval);
+                    alert("An error occurred during processing.");
+                  } else {
+                    clearInterval(interval);
+                    progressBar.value = 100;
+                    progressContainer.style.display = "none";
+                    outputContainer.style.display = "block";
+
+                    // Update the download link
+                    const filename = "output_audio.mp3"; // Adjust if filename varies
+                    downloadLink.href = `/output/${filename}`;
+                  }
+                });
+            }, 1000);
+          });
+      });
+    });
+  </script>
 </html>
