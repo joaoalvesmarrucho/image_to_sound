@@ -8,6 +8,21 @@ import numpy as np
 import threading
 import webbrowser
 from werkzeug.utils import secure_filename
+from flask import request
+import threading
+import os
+import signal
+
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    """Shut down the Flask server."""
+    func = request.environ.get("werkzeug.server.shutdown")
+    if func is None:
+        os.kill(os.getpid(), signal.SIGTERM)  # Fallback if Werkzeug is not used
+    else:
+        func()
+    return "Server shutting down..."
+
 
 app = Flask(__name__)
 app.secret_key = 'your_secure_random_secret_key'  # Replace with a secure random key in production
@@ -254,13 +269,11 @@ def clear_uploaded_files():
         logging.error(f"Failed to clear files: {e}")
     return redirect(url_for('home'))
 
-def open_browser():
-    """Open the web browser after the server starts."""
-    time.sleep(1)  # Wait briefly to ensure the server is running
-    webbrowser.open("http://127.0.0.1:5050")
+# def open_browser():
+#     """Open the web browser after the server starts."""
+#     time.sleep(1)  # Wait briefly to ensure the server is running
+#     webbrowser.open("http://127.0.0.1:5000")
 
 if __name__ == "__main__":
-    # Start the browser in a separate thread to prevent blocking
-    threading.Thread(target=open_browser).start()
-    # Start the Flask app with debug mode enabled
-    app.run(debug=True, port=5050)
+    # Remove the browser auto-launch and start the Flask app directly
+    app.run(debug=False, host="127.0.0.1", port=5000)
