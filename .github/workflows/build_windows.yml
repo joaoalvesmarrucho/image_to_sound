@@ -35,6 +35,10 @@ jobs:
           curl -L https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -o ffmpeg.zip
           tar -xf ffmpeg.zip -C ffmpeg --strip-components 1
 
+      - name: Copy FFmpeg to Dist
+        run: |
+          cp -r ffmpeg/bin/* dist/
+
       - name: Add FFmpeg to PATH
         run: echo "%cd%\\ffmpeg\\bin" >> $GITHUB_PATH
 
@@ -42,7 +46,8 @@ jobs:
       - name: Build Executable
         run: |
           pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" \
-          --hidden-import "scipy" --noconfirm image_to_sound.py
+            --hidden-import "scipy.signal" --hidden-import "scipy._lib" --hidden-import "scipy.special" \
+            --noconfirm image_to_sound.py
 
       # Step 6: Upload Executable
       - name: Upload Executable
