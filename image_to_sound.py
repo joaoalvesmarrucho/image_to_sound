@@ -1,38 +1,34 @@
 import os
+import sys  # Import sys for path adjustments
 import time
 import logging
-from flask import Flask, request, render_template, redirect, url_for, flash, jsonify
+import threading
+import signal
+
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 from PIL import Image
 from pydub import AudioSegment
 import numpy as np
-import threading
-import webbrowser
-from werkzeug.utils import secure_filename
-from flask import request
-import threading
-import os
-import signal
+from scipy.signal import butter, lfilter
 
-@app.route("/shutdown", methods=["POST"])
-def shutdown():
-    """Shut down the Flask server."""
-    func = request.environ.get("werkzeug.server.shutdown")
-    if func is None:
-        os.kill(os.getpid(), signal.SIGTERM)  # Fallback if Werkzeug is not used
-    else:
-        func()
-    return "Server shutting down..."
+# Determine base path for templates and static files
+if getattr(sys, 'frozen', False):
+    # If the application is run as a bundle (compiled with PyInstaller)
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.abspath(".")
 
-
-app = Flask(__name__)
+# Initialize Flask app with adjusted paths
+app = Flask(__name__, template_folder=os.path.join(base_path, 'templates'), static_folder=os.path.join(base_path, 'static'))
 app.secret_key = 'your_secure_random_secret_key'  # Replace with a secure random key in production
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Configure upload and output folders
-UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'output'
+UPLOAD_FOLDER = os.path.join(base_path, 'uploads')
+OUTPUT_FOLDER = os.path.join(base_path, 'output')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -41,11 +37,28 @@ app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB limit
 
 def create_output_subfolder():
     """Create an output subfolder with a timestamp."""
-    timestamp = time.strftime("%Y-%m-%d_%H-%M")
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     output_subfolder = os.path.join(OUTPUT_FOLDER, f"output_{timestamp}")
     os.makedirs(output_subfolder, exist_ok=True)
     logging.debug(f"Created output subfolder: {output_subfolder}")
     return output_subfolder
+
+def butter_lowpass(cutoff, fs, order=5):
+    """Design a Butterworth low-pass filter."""
+    nyq = 0.5 * fs  # Nyquist frequency
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def lowpass_filter(data, cutoff, fs, order=5):
+    """Apply a low-pass filter to the data."""
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+def moving_average(x, N):
+    """Compute the moving average of the data."""
+    return np.convolve(x, np.ones(N)/N, mode='same')
 
 def image_to_sound(image_path, frame_rate, read_direction="horizontal", speed_factor=2):
     """
@@ -80,8 +93,21 @@ def image_to_sound(image_path, frame_rate, read_direction="horizontal", speed_fa
         indices = np.linspace(0, len(pixels) - 1, samples_per_frame).astype(int)
         resampled_pixels = pixels[indices]
 
-        # Scale pixel values to int16 range
-        samples = np.interp(resampled_pixels, (0, 255), (-32768, 32767)).astype(np.int16)
+        # Apply moving average to smooth the pixel data
+        N = 5  # Window size for moving average
+        resampled_pixels = moving_average(resampled_pixels, N)
+
+        # Scale pixel values to float in range -1.0 to 1.0
+        samples = np.interp(resampled_pixels, (0, 255), (-1.0, 1.0))
+
+        # Apply low-pass filter to samples
+        cutoff = 1000  # Hz, adjust as needed
+        order = 6      # Filter order
+        samples = lowpass_filter(samples, cutoff, sample_rate, order)
+
+        # Scale back to int16 range
+        samples = np.int16(samples * 32767)
+
         return samples
     except Exception as e:
         logging.error(f"Error processing image {image_path}: {e}")
@@ -169,13 +195,10 @@ def home():
 def favicon():
     return '', 204  # Silences missing favicon error
 
-from flask import send_from_directory  # Add this import at the top if not present
-
 @app.route('/output/<path:filename>', methods=['GET'])
 def serve_output_file(filename):
     """Serve files from the output folder."""
     return send_from_directory(OUTPUT_FOLDER, filename)
-
 
 @app.route("/convert", methods=["POST"])
 def convert():
@@ -269,11 +292,16 @@ def clear_uploaded_files():
         logging.error(f"Failed to clear files: {e}")
     return redirect(url_for('home'))
 
-# def open_browser():
-#     """Open the web browser after the server starts."""
-#     time.sleep(1)  # Wait briefly to ensure the server is running
-#     webbrowser.open("http://127.0.0.1:5000")
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    """Shut down the Flask server."""
+    func = request.environ.get("werkzeug.server.shutdown")
+    if func is None:
+        os.kill(os.getpid(), signal.SIGTERM)  # Fallback if Werkzeug is not used
+    else:
+        func()
+    return "Server shutting down..."
 
 if __name__ == "__main__":
-    # Remove the browser auto-launch and start the Flask app directly
+    # Start the Flask app
     app.run(debug=False, host="127.0.0.1", port=5000)

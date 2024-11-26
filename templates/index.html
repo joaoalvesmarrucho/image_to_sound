@@ -4,20 +4,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Image to Sound Converter</title>
-    <link
-      rel="icon"
-      href="{{ url_for('static', filename='favicon.ico') }}"
-      type="image/x-icon"
-    />
-    <!-- <link rel="icon" href="data:," type="image/x-icon" /> -->
-
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='main.css') }}"
     />
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
   </head>
   <body>
     <h1>Convert Image Frames to Sound</h1>
@@ -75,6 +66,11 @@
       </div>
     </form>
 
+    <!-- Close App Button -->
+    <div class="form-group">
+      <button id="shutdown-button" class="clear-button">Close App</button>
+    </div>
+
     <!-- Progress Indicator -->
     <div id="progress-container" style="display: none">
       <p>Processing... Please wait.</p>
@@ -96,53 +92,71 @@
       <p>Your audio file is ready for download:</p>
       <a id="download-link" href="#" download>Download MP3</a>
     </div>
-  </body>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const form = document.getElementById("conversion-form");
-      const progressContainer = document.getElementById("progress-container");
-      const progressBar = document.getElementById("progress-bar");
-      const outputContainer = document.getElementById("output-container");
-      const downloadLink = document.getElementById("download-link");
 
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const formData = new FormData(form);
-        progressContainer.style.display = "block";
-        progressBar.value = 0;
+    <!-- JavaScript -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("conversion-form");
+        const progressContainer = document.getElementById("progress-container");
+        const progressBar = document.getElementById("progress-bar");
+        const outputContainer = document.getElementById("output-container");
+        const downloadLink = document.getElementById("download-link");
 
-        fetch("/convert", {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            const taskId = data.task_id;
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const formData = new FormData(form);
+          progressContainer.style.display = "block";
+          progressBar.value = 0;
 
-            // Poll for progress
-            const interval = setInterval(() => {
-              fetch(`/progress/${taskId}`)
-                .then((res) => res.json())
-                .then((progressData) => {
-                  if (progressData.status === "processing") {
-                    progressBar.value = progressData.progress;
-                  } else if (progressData.status === "error") {
-                    clearInterval(interval);
-                    alert("An error occurred during processing.");
-                  } else {
-                    clearInterval(interval);
-                    progressBar.value = 100;
-                    progressContainer.style.display = "none";
-                    outputContainer.style.display = "block";
+          fetch("/convert", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              const taskId = data.task_id;
 
-                    // Update the download link
-                    const filename = "output_audio.mp3"; // Adjust if filename varies
-                    downloadLink.href = `/output/${filename}`;
-                  }
-                });
-            }, 1000);
+              // Poll for progress
+              const interval = setInterval(() => {
+                fetch(`/progress/${taskId}`)
+                  .then((res) => res.json())
+                  .then((progressData) => {
+                    if (progressData.status === "processing") {
+                      progressBar.value = progressData.progress;
+                    } else if (progressData.status === "error") {
+                      clearInterval(interval);
+                      alert("An error occurred during processing.");
+                    } else {
+                      clearInterval(interval);
+                      progressBar.value = 100;
+                      progressContainer.style.display = "none";
+                      outputContainer.style.display = "block";
+
+                      // Update the download link
+                      const filename = "output_audio.mp3"; // Adjust if filename varies
+                      downloadLink.href = `/output/output_${new Date()
+                        .toISOString()
+                        .slice(0, 19)
+                        .replace(/:/g, "-")}/output_audio.mp3`;
+                    }
+                  });
+              }, 1000);
+            });
+        });
+
+        document
+          .getElementById("shutdown-button")
+          .addEventListener("click", () => {
+            fetch("/shutdown", { method: "POST" })
+              .then(() => {
+                alert("Server is shutting down...");
+              })
+              .catch((err) => {
+                console.error("Error shutting down the server:", err);
+                alert("Failed to shut down the server.");
+              });
           });
       });
-    });
-  </script>
+    </script>
+  </body>
 </html>
