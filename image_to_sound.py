@@ -11,6 +11,12 @@ from PIL import Image
 from pydub import AudioSegment
 import numpy as np
 from scipy.signal import butter, lfilter
+from pydub.utils import which
+
+# Explicitly set FFmpeg path
+AudioSegment.converter = which("ffmpeg")
+if not AudioSegment.converter:
+    raise RuntimeError("FFmpeg not found! Ensure it is installed and added to PATH.")
 
 # Determine base path for templates and static files
 if getattr(sys, 'frozen', False):
