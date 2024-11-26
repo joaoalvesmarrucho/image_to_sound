@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build Windows Executable with Versioning
 
 on:
   push:
@@ -12,26 +12,54 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      # Step 3: Install Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pillow pydub numpy flask
+          pip install -r requirements.txt
+          pip install pyinstaller
 
-      - name: Build executable
+      # Step 4: Download and Add FFmpeg
+      - name: Download FFmpeg
         run: |
-          pyinstaller --onefile --noconfirm image_to_sound.py
+          curl -L https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -o ffmpeg.zip
+          tar -xf ffmpeg.zip -C ffmpeg --strip-components 1
 
-      - name: Upload executable
+      - name: Add FFmpeg to PATH
+        run: echo "%cd%\\ffmpeg\\bin" >> $GITHUB_PATH
+
+      # Step 5: Build Executable
+      - name: Build Executable
+        run: |
+          pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" \
+          --hidden-import "scipy" --noconfirm image_to_sound.py
+
+      # Step 6: Upload Executable
+      - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:
           name: Windows Executable
           path: dist/image_to_sound.exe
 
+      # Step 7: Generate Version Number (Optional)
+      - name: Generate Version
+        id: version
+        run: |
+          echo "version=$(date +'%Y.%m.%d.%H%M%S')" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Add Version to Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "Windows Executable - ${{ env.version }}"
+          path: dist/image_to_sound.exe
